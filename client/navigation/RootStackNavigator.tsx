@@ -23,6 +23,25 @@ import AuditLogScreen from "@/screens/AuditLogScreen";
 import AboutScreen from "@/screens/AboutScreen";
 import HelpScreen from "@/screens/HelpScreen";
 
+import CategoriesScreen from "@/screens/CategoriesScreen";
+import CustomersScreen from "@/screens/CustomersScreen";
+import NotificationsScreen from "@/screens/NotificationsScreen";
+import AnalyticsScreen from "@/screens/AnalyticsScreen";
+import SearchScreen from "@/screens/SearchScreen";
+import QuickSaleScreen from "@/screens/QuickSaleScreen";
+import PurchaseOrdersScreen from "@/screens/PurchaseOrdersScreen";
+import BackupRestoreScreen from "@/screens/BackupRestoreScreen";
+import PriceCheckScreen from "@/screens/PriceCheckScreen";
+import ReceiptScreen from "@/screens/ReceiptScreen";
+
+import APISettingsScreen from "@/screens/APISettingsScreen";
+import AIChatScreen from "@/screens/AIChatScreen";
+import DrugInteractionsScreen from "@/screens/DrugInteractionsScreen";
+import AIInsightsScreen from "@/screens/AIInsightsScreen";
+import DemandForecastScreen from "@/screens/DemandForecastScreen";
+import ProfileScreen from "@/screens/ProfileScreen";
+import ReportsScreen from "@/screens/ReportsScreen";
+
 export type RootStackParamList = {
   Main: undefined;
   Login: undefined;
@@ -41,6 +60,34 @@ export type RootStackParamList = {
   AuditLog: undefined;
   About: undefined;
   Help: undefined;
+  Categories: undefined;
+  Customers: undefined;
+  Notifications: undefined;
+  Analytics: undefined;
+  Search: undefined;
+  QuickSale: undefined;
+  PurchaseOrders: undefined;
+  BackupRestore: undefined;
+  PriceCheck: undefined;
+  Receipt: {
+    invoiceId: string;
+    invoiceNumber: string;
+    items: { name: string; quantity: number; price: number }[];
+    subtotal: number;
+    discount: number;
+    total: number;
+    customerName?: string;
+    paymentMethod: string;
+    date: string;
+  };
+  APISettings: undefined;
+  AIChat: undefined;
+  DrugInteractions: undefined;
+  AIInsights: undefined;
+  DemandForecast: undefined;
+  Profile: undefined;
+  Reports: undefined;
+  ChangePassword: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -149,6 +196,91 @@ export default function RootStackNavigator() {
             name="Help"
             component={HelpScreen}
             options={{ headerTitle: "Help & FAQ" }}
+          />
+          <Stack.Screen
+            name="Categories"
+            component={CategoriesScreen}
+            options={{ headerTitle: "Categories" }}
+          />
+          <Stack.Screen
+            name="Customers"
+            component={CustomersScreen}
+            options={{ headerTitle: "Customers" }}
+          />
+          <Stack.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{ headerTitle: "Notifications" }}
+          />
+          <Stack.Screen
+            name="Analytics"
+            component={AnalyticsScreen}
+            options={{ headerTitle: "Analytics" }}
+          />
+          <Stack.Screen
+            name="Search"
+            component={SearchScreen}
+            options={{ headerShown: false, presentation: "modal" }}
+          />
+          <Stack.Screen
+            name="QuickSale"
+            component={QuickSaleScreen}
+            options={{ headerShown: false, presentation: "fullScreenModal" }}
+          />
+          <Stack.Screen
+            name="PurchaseOrders"
+            component={PurchaseOrdersScreen}
+            options={{ headerTitle: "Purchase Orders" }}
+          />
+          <Stack.Screen
+            name="BackupRestore"
+            component={BackupRestoreScreen}
+            options={{ headerTitle: "Backup & Restore" }}
+          />
+          <Stack.Screen
+            name="PriceCheck"
+            component={PriceCheckScreen}
+            options={{ headerShown: false, presentation: "fullScreenModal" }}
+          />
+          <Stack.Screen
+            name="Receipt"
+            component={ReceiptScreen}
+            options={{ headerTitle: "Receipt" }}
+          />
+          <Stack.Screen
+            name="APISettings"
+            component={APISettingsScreen}
+            options={{ headerTitle: "API Settings" }}
+          />
+          <Stack.Screen
+            name="AIChat"
+            component={AIChatScreen}
+            options={{ headerTitle: "AI Assistant" }}
+          />
+          <Stack.Screen
+            name="DrugInteractions"
+            component={DrugInteractionsScreen}
+            options={{ headerTitle: "Drug Interactions" }}
+          />
+          <Stack.Screen
+            name="AIInsights"
+            component={AIInsightsScreen}
+            options={{ headerTitle: "AI Insights" }}
+          />
+          <Stack.Screen
+            name="DemandForecast"
+            component={DemandForecastScreen}
+            options={{ headerTitle: "Demand Forecast" }}
+          />
+          <Stack.Screen
+            name="Profile"
+            component={ProfileScreen}
+            options={{ headerTitle: "Profile" }}
+          />
+          <Stack.Screen
+            name="Reports"
+            component={ReportsScreen}
+            options={{ headerTitle: "Reports" }}
           />
         </>
       )}

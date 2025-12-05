@@ -451,6 +451,263 @@ export class DatabaseStorage implements IStorage {
       totalSuppliers: Number((supplierCount.rows[0] as any).count),
     };
   }
+
+  // Customers
+  async getAllCustomers(): Promise<any[]> {
+    const result = await db.execute(sql`
+      SELECT DISTINCT customer_name as name, customer_phone as phone,
+             MAX(created_at) as last_visit,
+             COUNT(*) as total_purchases,
+             SUM(total_amount) as total_amount
+      FROM invoices
+      WHERE customer_name IS NOT NULL AND customer_name != ''
+      GROUP BY customer_name, customer_phone
+      ORDER BY total_amount DESC
+    `);
+    return (result.rows as any[]).map((r, i) => ({
+      id: `customer-${i}`,
+      name: r.name,
+      phone: r.phone,
+      lastVisit: r.last_visit,
+      totalPurchases: Number(r.total_amount),
+    }));
+  }
+
+  async createCustomer(data: { name: string; phone?: string; email?: string; address?: string }): Promise<any> {
+    return {
+      id: `customer-${Date.now()}`,
+      ...data,
+      createdAt: new Date(),
+    };
+  }
+
+  async deleteCustomer(id: string): Promise<void> {
+    // Customers are derived from invoices, so we can't delete them
+  }
+
+  // Category CRUD
+  async updateCategory(id: string, data: Partial<Category>): Promise<Category | undefined> {
+    const [category] = await db
+      .update(categories)
+      .set(data)
+      .where(eq(categories.id, id))
+      .returning();
+    return category;
+  }
+
+  async deleteCategory(id: string): Promise<void> {
+    await db.delete(categories).where(eq(categories.id, id));
+  }
+
+  // Global Search
+  async globalSearch(query: string, type: string): Promise<any[]> {
+    const results: any[] = [];
+    const searchQuery = `%${query}%`;
+
+    if (type === "all" || type === "medicine") {
+      const meds = await db.select().from(medicines)
+        .where(or(
+          ilike(medicines.name, searchQuery),
+          ilike(medicines.genericName, searchQuery),
+          ilike(medicines.brand, searchQuery)
+        ))
+        .limit(10);
+      results.push(...meds.map(m => ({
+        id: m.id,
+        type: "medicine",
+        title: m.name,
+        subtitle: m.brand || m.genericName,
+        metadata: `MRP: Rs ${m.mrp}`,
+      })));
+    }
+
+    if (type === "all" || type === "invoice") {
+      const invs = await db.select().from(invoices)
+        .where(or(
+          ilike(invoices.invoiceNumber, searchQuery),
+          ilike(invoices.customerName, searchQuery)
+        ))
+        .limit(10);
+      results.push(...invs.map(i => ({
+        id: i.id,
+        type: "invoice",
+        title: i.invoiceNumber,
+        subtitle: i.customerName || "Walk-in",
+        metadata: `Rs ${i.totalAmount}`,
+      })));
+    }
+
+    if (type === "all" || type === "supplier") {
+      const sups = await db.select().from(suppliers)
+        .where(or(
+          ilike(suppliers.name, searchQuery),
+          ilike(suppliers.email, searchQuery),
+          ilike(suppliers.phone, searchQuery)
+        ))
+        .limit(10);
+      results.push(...sups.map(s => ({
+        id: s.id,
+        type: "supplier",
+        title: s.name,
+        subtitle: s.phone || s.email,
+        metadata: s.city || "",
+      })));
+    }
+
+    return results;
+  }
+
+  // Analytics
+  async getAnalytics(period: string): Promise<any> {
+    const now = new Date();
+    let startDate = new Date();
+    
+    switch (period) {
+      case "today":
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case "week":
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case "month":
+        startDate.setDate(now.getDate() - 30);
+        break;
+      case "year":
+        startDate.setDate(now.getDate() - 365);
+        break;
+    }
+
+    const salesResult = await db.execute(sql`
+      SELECT 
+        COALESCE(SUM(total_amount), 0) as total_sales,
+        COUNT(*) as total_orders,
+        COALESCE(AVG(total_amount), 0) as avg_order
+      FROM invoices
+      WHERE created_at >= ${startDate}
+    `);
+
+    const topProductsResult = await db.execute(sql`
+      SELECT m.name, SUM(ii.quantity) as quantity, SUM(ii.total) as revenue
+      FROM invoice_items ii
+      JOIN medicines m ON ii.medicine_id = m.id
+      JOIN invoices i ON ii.invoice_id = i.id
+      WHERE i.created_at >= ${startDate}
+      GROUP BY m.id, m.name
+      ORDER BY revenue DESC
+      LIMIT 5
+    `);
+
+    const row = salesResult.rows[0] as any;
+    
+    return {
+      totalSales: Number(row.total_sales),
+      totalOrders: Number(row.total_orders),
+      averageOrderValue: Number(row.avg_order),
+      topProducts: (topProductsResult.rows as any[]).map(p => ({
+        name: p.name,
+        quantity: Number(p.quantity),
+        revenue: Number(p.revenue),
+      })),
+      salesTrend: [],
+      categoryDistribution: [],
+    };
+  }
+
+  // Export all data
+  async exportAllData(): Promise<any> {
+    const [
+      allMedicines,
+      allSuppliers,
+      allCategories,
+      allInvoices,
+      allBatches,
+      allUsers
+    ] = await Promise.all([
+      this.getAllMedicines(),
+      this.getAllSuppliers(),
+      this.getAllCategories(),
+      this.getAllInvoices(),
+      db.select().from(batches),
+      this.getAllUsers(),
+    ]);
+
+    return {
+      exportedAt: new Date().toISOString(),
+      version: "1.0",
+      data: {
+        medicines: allMedicines,
+        suppliers: allSuppliers,
+        categories: allCategories,
+        invoices: allInvoices,
+        batches: allBatches,
+        users: allUsers.map(u => ({ ...u, password: undefined })),
+      },
+    };
+  }
+
+  // Import data
+  async importData(data: any): Promise<void> {
+    // This is a simplified import - in production you'd want transactions and validation
+    if (data.data?.medicines) {
+      for (const med of data.data.medicines) {
+        try {
+          await this.createMedicine(med);
+        } catch (e) {
+          // Skip duplicates
+        }
+      }
+    }
+    if (data.data?.suppliers) {
+      for (const sup of data.data.suppliers) {
+        try {
+          await this.createSupplier(sup);
+        } catch (e) {
+          // Skip duplicates
+        }
+      }
+    }
+    if (data.data?.categories) {
+      for (const cat of data.data.categories) {
+        try {
+          await this.createCategory(cat);
+        } catch (e) {
+          // Skip duplicates
+        }
+      }
+    }
+  }
+
+  // Notifications
+  async getNotifications(userId: string): Promise<any[]> {
+    const expiring = await this.getExpiringBatches(30);
+    const lowStock = await this.getLowStockMedicines();
+    
+    const notifications: any[] = [];
+    
+    expiring.slice(0, 5).forEach((item, i) => {
+      notifications.push({
+        id: `exp-${i}`,
+        title: "Expiry Alert",
+        body: `${item.medicine_name} expires on ${new Date(item.expiry_date).toLocaleDateString()}`,
+        type: "expiry",
+        read: false,
+        createdAt: new Date(),
+      });
+    });
+    
+    lowStock.slice(0, 5).forEach((item, i) => {
+      notifications.push({
+        id: `low-${i}`,
+        title: "Low Stock Alert",
+        body: `${item.name} is running low (${item.total_stock} units)`,
+        type: "lowStock",
+        read: false,
+        createdAt: new Date(),
+      });
+    });
+    
+    return notifications;
+  }
 }
 
 export const storage = new DatabaseStorage();

@@ -18,6 +18,22 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type DateRange = "today" | "week" | "month" | "custom";
 
+interface DashboardStats {
+  todaySales?: { total_revenue: number; total_bills: number };
+  weeklySales?: number;
+  monthlySales?: number;
+  totalMedicines?: number;
+  lowStockCount?: number;
+  expiringCount?: number;
+}
+
+interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  createdAt: string;
+  totalAmount: number;
+}
+
 export default function ReportsScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
@@ -25,11 +41,11 @@ export default function ReportsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const [dateRange, setDateRange] = useState<DateRange>("today");
 
-  const { data: stats, refetch } = useQuery({
+  const { data: stats, refetch } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
   });
 
-  const { data: invoices = [] } = useQuery({
+  const { data: invoices = [] } = useQuery<Invoice[]>({
     queryKey: ["/api/invoices"],
   });
 
@@ -109,7 +125,7 @@ export default function ReportsScreen() {
           ))}
         </View>
 
-        <Card style={[styles.summaryCard, { backgroundColor: theme.primary }]} elevation={0}>
+        <Card style={{ ...styles.summaryCard, backgroundColor: theme.primary }} elevation={0}>
           <ThemedText style={styles.summaryLabel}>Total Sales</ThemedText>
           <ThemedText style={styles.summaryValue}>
             {formatCurrency(getSalesValue())}

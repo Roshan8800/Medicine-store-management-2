@@ -538,6 +538,275 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ CUSTOMERS ============
+  
+  app.get("/api/customers", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const customers = await storage.getAllCustomers();
+      res.json(customers);
+    } catch (error) {
+      console.error("Get customers error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.post("/api/customers", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const customer = await storage.createCustomer(req.body);
+      res.status(201).json(customer);
+    } catch (error) {
+      console.error("Create customer error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.delete("/api/customers/:id", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      await storage.deleteCustomer(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete customer error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ============ SEARCH ============
+  
+  app.get("/api/search", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const { q, type } = req.query;
+      const query = (q as string) || "";
+      const searchType = (type as string) || "all";
+      
+      const results = await storage.globalSearch(query, searchType);
+      res.json(results);
+    } catch (error) {
+      console.error("Search error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ============ ANALYTICS ============
+  
+  app.get("/api/analytics", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const period = (req.query.period as string) || "week";
+      const analytics = await storage.getAnalytics(period);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Analytics error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ============ CATEGORY CRUD ============
+  
+  app.patch("/api/categories/:id", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const category = await storage.updateCategory(req.params.id, req.body);
+      if (!category) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      console.error("Update category error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.delete("/api/categories/:id", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      await storage.deleteCategory(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete category error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ============ PURCHASE ORDERS CRUD ============
+  
+  app.patch("/api/purchase-orders/:id", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const order = await storage.updatePurchaseOrderStatus(req.params.id, req.body.status);
+      if (!order) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      res.json(order);
+    } catch (error) {
+      console.error("Update purchase order error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ============ BACKUP & RESTORE ============
+  
+  app.get("/api/backup/export", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const backup = await storage.exportAllData();
+      res.json(backup);
+    } catch (error) {
+      console.error("Export error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.post("/api/backup/import", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      await storage.importData(req.body);
+      res.json({ message: "Data imported successfully" });
+    } catch (error) {
+      console.error("Import error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ============ NOTIFICATIONS ============
+  
+  app.get("/api/notifications", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const notifications = await storage.getNotifications((req as any).user.id);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Get notifications error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // ============ AI FEATURES ============
+  
+  app.post("/api/ai/chat", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const { chatWithAI } = await import("./ai");
+      const { message, context } = req.body;
+      const result = await chatWithAI(message, context);
+      res.json(result);
+    } catch (error) {
+      console.error("AI chat error:", error);
+      res.status(500).json({ success: false, error: "AI service unavailable" });
+    }
+  });
+
+  app.post("/api/ai/drug-interactions", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const { checkDrugInteractions } = await import("./ai");
+      const { drugs } = req.body;
+      const result = await checkDrugInteractions(drugs);
+      res.json(result);
+    } catch (error) {
+      console.error("Drug interactions error:", error);
+      res.status(500).json({ success: false, error: "AI service unavailable" });
+    }
+  });
+
+  app.post("/api/ai/alternatives", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const { suggestAlternatives } = await import("./ai");
+      const { medicine, reason } = req.body;
+      const result = await suggestAlternatives(medicine, reason);
+      res.json(result);
+    } catch (error) {
+      console.error("Alternatives error:", error);
+      res.status(500).json({ success: false, error: "AI service unavailable" });
+    }
+  });
+
+  app.post("/api/ai/predict-demand", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const { predictDemand } = await import("./ai");
+      const { medicineHistory } = req.body;
+      const result = await predictDemand(medicineHistory);
+      res.json(result);
+    } catch (error) {
+      console.error("Predict demand error:", error);
+      res.status(500).json({ success: false, error: "AI service unavailable" });
+    }
+  });
+
+  app.post("/api/ai/smart-search", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const { smartSearch } = await import("./ai");
+      const { query, context } = req.body;
+      const result = await smartSearch(query, context);
+      res.json(result);
+    } catch (error) {
+      console.error("Smart search error:", error);
+      res.status(500).json({ success: false, error: "AI service unavailable" });
+    }
+  });
+
+  app.post("/api/ai/sales-insights", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const { generateSalesInsights } = await import("./ai");
+      const { salesData } = req.body;
+      const result = await generateSalesInsights(salesData);
+      res.json(result);
+    } catch (error) {
+      console.error("Sales insights error:", error);
+      res.status(500).json({ success: false, error: "AI service unavailable" });
+    }
+  });
+
+  app.post("/api/ai/analyze-prescription", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const { analyzePrescription } = await import("./ai");
+      const { prescriptionText } = req.body;
+      const result = await analyzePrescription(prescriptionText);
+      res.json(result);
+    } catch (error) {
+      console.error("Prescription analysis error:", error);
+      res.status(500).json({ success: false, error: "AI service unavailable" });
+    }
+  });
+
+  app.post("/api/ai/expiry-risk", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const { predictExpiryRisk } = await import("./ai");
+      const { batches } = req.body;
+      const result = await predictExpiryRisk(batches);
+      res.json(result);
+    } catch (error) {
+      console.error("Expiry risk error:", error);
+      res.status(500).json({ success: false, error: "AI service unavailable" });
+    }
+  });
+
+  app.post("/api/ai/customer-insights", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const { generateCustomerInsights } = await import("./ai");
+      const { customerData } = req.body;
+      const result = await generateCustomerInsights(customerData);
+      res.json(result);
+    } catch (error) {
+      console.error("Customer insights error:", error);
+      res.status(500).json({ success: false, error: "AI service unavailable" });
+    }
+  });
+
+  app.post("/api/ai/optimize-pricing", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const { optimizePricing } = await import("./ai");
+      const { medicines } = req.body;
+      const result = await optimizePricing(medicines);
+      res.json(result);
+    } catch (error) {
+      console.error("Price optimization error:", error);
+      res.status(500).json({ success: false, error: "AI service unavailable" });
+    }
+  });
+
+  app.post("/api/ai/inventory-summary", authenticateToken, async (req: Request, res: Response) => {
+    try {
+      const { summarizeInventoryStatus } = await import("./ai");
+      const { inventory } = req.body;
+      const result = await summarizeInventoryStatus(inventory);
+      res.json(result);
+    } catch (error) {
+      console.error("Inventory summary error:", error);
+      res.status(500).json({ success: false, error: "AI service unavailable" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
